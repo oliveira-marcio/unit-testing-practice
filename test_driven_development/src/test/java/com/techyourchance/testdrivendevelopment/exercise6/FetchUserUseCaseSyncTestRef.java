@@ -47,8 +47,7 @@ public class FetchUserUseCaseSyncTestRef {
     public void setup() throws Exception {
         mFetchUserHttpEndpointSyncTestDouble = new FetchUserHttpEndpointSyncTestDouble();
 
-        // TODO: assign your implementation of FetchUserUseCaseSync to SUT
-        // SUT = new FetchUserUseCaseSyncImpl(mFetchUserHttpEndpointSyncTestDouble, mUsersCacheMock);
+         SUT = new FetchUserUseCaseSyncImpl(mFetchUserHttpEndpointSyncTestDouble, mUsersCacheMock);
 
         userNotInCache();
         endpointSuccess();
@@ -276,6 +275,45 @@ public class FetchUserUseCaseSyncTestRef {
             } else {
                 return new EndpointResult(EndpointStatus.SUCCESS, USER_ID, USERNAME);
             }
+        }
+    }
+
+    private class FetchUserUseCaseSyncImpl implements FetchUserUseCaseSync {
+
+        private final FetchUserHttpEndpointSyncTestDouble mUserProfileHttpEndpointSync;
+        private final UsersCache mUsersCache;
+
+        public FetchUserUseCaseSyncImpl(FetchUserHttpEndpointSyncTestDouble userProfileHttpEndpointSync,
+                                        UsersCache usersCache) {
+            mUserProfileHttpEndpointSync = userProfileHttpEndpointSync;
+            mUsersCache = usersCache;
+        }
+
+        @Override
+        public UseCaseResult fetchUserSync(String userId) {
+            User user = mUsersCache.getUser(userId);
+            if(user != null){
+                return new UseCaseResult(Status.SUCCESS, user);
+            }
+
+            try {
+                FetchUserHttpEndpointSync.EndpointResult endpointResult;
+                endpointResult = mUserProfileHttpEndpointSync.fetchUserSync(userId);
+                if (isSuccessfulEndpointResult(endpointResult)) {
+                    user = new User(endpointResult.getUserId(), endpointResult.getUsername());
+                    mUsersCache.cacheUser(user);
+                    return new UseCaseResult(Status.SUCCESS, user);
+                } else {
+                    return new UseCaseResult(Status.FAILURE, null);
+                }
+            } catch (NetworkErrorException e) {
+                return new UseCaseResult(Status.NETWORK_ERROR, null);
+            }
+
+        }
+
+        private boolean isSuccessfulEndpointResult(FetchUserHttpEndpointSync.EndpointResult endpointResult) {
+            return endpointResult.getStatus() == FetchUserHttpEndpointSync.EndpointStatus.SUCCESS;
         }
     }
 
